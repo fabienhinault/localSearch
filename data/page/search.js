@@ -1,14 +1,18 @@
 var box = document.getElementById('box');
 
-$('#button').bind('click', function(event){
-    console.log('click');
-    console.log(box.value);
+var search = function(event){
     self.port.emit('search', box.value);
+};
+
+$('#button').bind('click', search);
+$('#box').keypress(function( event ) { 
+    if ( event.which == 13 ) {
+        search(event);
+    }
 });
 
-self.on('message', function(urls) {
-  console.log('message');
-  console.log(urls);
+self.on('message', function(q, urls) {
+  $('#quota').text(q);
   var resultsHtml = $('#results');
   resultsHtml.empty();
   for (var url in urls){
