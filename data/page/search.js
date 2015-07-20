@@ -4,6 +4,10 @@ var search = function(event){
     self.port.emit('search', box.value);
 };
 
+$('#erase').bind('click', function(){
+  self.port.emit('erase');
+});
+
 $('#button').bind('click', search);
 $('#box').keypress(function( event ) {
     if ( event.which == 13 ) {
