@@ -1,11 +1,35 @@
-var widgets = require('sdk/widget');
+//var self = require('sdk/self');
+//
+//// a dummy function, to show how tests work.
+//// to see how to test this function, look at test/test-index.js
+//function dummy(text, callback) {
+//  callback(text);
+//}
+//
+//exports.dummy = dummy;
+
 var tabs = require("sdk/tabs");
 var self = require("sdk/self");
 var simpleStorage = require('sdk/simple-storage');
 var data = require('sdk/self').data;
-var data = require('sdk/self').data;
 var pageMod = require("sdk/page-mod");
+var buttons = require('sdk/ui/button/action');
 
+
+var button = buttons.ActionButton({
+  id: "haystack",
+  label: "open search tab",
+  icon: {
+    "16": "./v57983_16x16.png",
+    "32": "./v57983_32x32.png",
+    "64": "./v57983.png"
+  },
+  onClick: handleClick
+});
+
+function handleClick(state) {
+  tabs.open(data.url('page/search.html'));
+}
 
 if (!simpleStorage.storage.localSearch){
   simpleStorage.storage.localSearch = {};
@@ -19,26 +43,6 @@ var searchIsOn = true;
 function toggleActivation() {
   searchIsOn = !searchIsOn;
   return searchIsOn;
-}
-
-exports.main = function() {
-  var widget = widgets.Widget({
-    id: 'toggle-switch',
-    label: 'Annotator',
-    contentURL: data.url('widget/pencil-on.png'),
-    contentScriptWhen: 'ready',
-    contentScriptFile: data.url('widget/widget.js')
-  });
-
-  widget.port.on('left-click', function() {
-    tabs.open(data.url('page/search.html'));
-  });
-
-  widget.port.on('right-click', function() {
-    widget.contentURL = toggleActivation() ?
-              data.url('widget/pencil-on.png') :
-              data.url('widget/pencil-off.png');
-  });
 }
 
 var searchPageMod = pageMod.PageMod({
@@ -103,3 +107,4 @@ function storeData(data){
       storedMap[word][index] = map[word][url];
   }
 }
+

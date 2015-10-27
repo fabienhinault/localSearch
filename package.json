@@ -1,9 +1,16 @@
 {
-  "name": "localsearch",
-  "title": "localSearch",
-  "id": "jid1-FHVJAceFG8tuBg",
-  "description": "a basic add-on",
-  "author": "",
-  "license": "MPL 2.0",
-  "version": "0.1"
+  "title": "HayStack",
+  "name": "haystack",
+  "version": "0.0.1",
+  "description": "A local/distributed search engine",
+  "main": "index.js",
+  "author": "Fabien Hinault",
+  "engines": {
+    "firefox": ">=38.0a1",
+    "fennec": ">=38.0a1"
+  },
+  "license": "GPLv3",
+  "keywords": [
+    "jetpack"
+  ]
 }
