@@ -1,12 +1,3 @@
-//var self = require('sdk/self');
-//
-//// a dummy function, to show how tests work.
-//// to see how to test this function, look at test/test-index.js
-//function dummy(text, callback) {
-//  callback(text);
-//}
-//
-//exports.dummy = dummy;
 
 var tabs = require("sdk/tabs");
 var self = require("sdk/self");
@@ -14,7 +5,7 @@ var simpleStorage = require('sdk/simple-storage');
 var data = require('sdk/self').data;
 var pageMod = require("sdk/page-mod");
 var buttons = require('sdk/ui/button/action');
-
+var reHost = /^.*\:\/\/.*\//;
 
 var button = buttons.ActionButton({
   id: "haystack",
@@ -32,16 +23,40 @@ function handleClick(state) {
 }
 
 if (!simpleStorage.storage.localSearch){
-  simpleStorage.storage.localSearch = {};
+   simpleStorage.storage.localSearch = {};
 }
 if (!simpleStorage.storage.localSearchUrls){
   simpleStorage.storage.localSearchUrls = {};
 }
-if (!simpleStorage.storage.localSearchCounter){
-  simpleStorage.storage.localSearchCounter = 0;
+var index = 0;
+if (Array.isArray(simpleStorage.storage.localSearchUrls)){
+  var urlsArray = simpleStorage.storage.localSearchUrls;
+  var urls = {};
+  for(index = 0;
+      index < urlsArray.length;
+      index++){
+    var url = urlsArray[index];
+    if (undefined === simpleStorage.storage.localSearchIndexes[url]) {
+      urls[index] = url;
+      simpleStorage.storage.localSearchIndexes[url] = index;
+    }
+    simpleStorage.storage.localSearchIndex = index;
+  }
 }
 if (!simpleStorage.storage.localSearchIndexes){
   simpleStorage.storage.localSearchIndexes = {};
+  for(index in Object.keys(simpleStorage.storage.localSearchUrls)) {
+    var url = simpleStorage.storage.localSearchUrls[index];
+    simpleStorage.storage.localSearchIndexes[url] = index;
+  }
+}
+if (!simpleStorage.storage.localSearchIndex) {
+  simpleStorage.storage.localSearchIndex = index;
+}
+if (!simpleStorage.storage.localSearchBlacklist) {
+  simpleStorage.storage.localSearchBlacklist = {
+    'https://www.google.fr/' : true,
+  };
 }
 
 var searchIsOn = true;
@@ -62,25 +77,38 @@ var searchPageMod = pageMod.PageMod({
       var result = [];
       var index;
       for (index in storedResult){
-        result.push({url:simpleStorage.storage.localSearchUrls[index] || index,
-                     number:storedResult[index]});
+        var url = simpleStorage.storage.localSearchUrls[index] || index;
+        if (blacklisted(url)) {
+          delete simpleStorage.storage.localSearch[word][url];
+        } else {
+          result.push({url: url, number: storedResult[index]});
+        }
       }
       //sort in reverse order
       result.sort(function(a, b){return b.number - a.number;});
-      worker.postMessage(simpleStorage.quotaUsage,
-                         result);
+      worker.postMessage(simpleStorage.quotaUsage, result);
     });
     worker.port.on('erase', function() {
       simpleStorage.storage.localSearch = {};
-      simpleStorage.storage.localSearchUrls = [];
+      simpleStorage.storage.localSearchUrls = {};
+      simpleStorage.storage.localSearchIndexes = {};
+      simpleStorage.storage.localSearchIndex = 0;
+    });
+    worker.port.on('blacklist', function(url) {
+      simpleStorage.storage.localSearchBlacklist[url.match(reHost)] = true;
     });
   }
 });
 
+function blacklisted(url) {
+  return  !!simpleStorage.storage.localSearchBlacklist[
+    url.match(reHost)];
+}
+
 tabs.on("ready", crawl);
 
 function crawl(tab){
-  if (searchIsOn && !require("sdk/private-browsing").isPrivate(tab)){
+  if (searchIsOn && !require("sdk/private-browsing").isPrivate(tab) && !blacklisted(tab.url)){
       var worker = tab.attach({
         contentScriptFile: self.data.url("addUrl.js")
       });
@@ -91,10 +119,17 @@ function crawl(tab){
 function storeData(data){
   var content = data.content;
   var url = data.url;
-  var index = simpleStorage.storage.localSearchUrls[url];
+  var index = simpleStorage.storage.localSearchIndex;
+  if (undefined === simpleStorage.storage.localSearchIndexes[url])
+  {
+    simpleStorage.storage.localSearchIndexes[url] = index;
+    simpleStorage.storage.localSearchUrls[index] = url;
+    simpleStorage.storage.localSearchIndex++;
+  } else {
+    index = simpleStorage.storage.localSearchIndexes[url];
+  }
   var pageWords = content.split(/\W+/); // / ,;\:!\?\./§%\* .../
   var map = {};
-  var storedMap = simpleStorage.storage.localSearch;
   var addWord = function(word){
     if (!map[word]){
         map[word] = {};
@@ -105,23 +140,13 @@ function storeData(data){
         map[word][url] = 1;
     }
   };
-  var index;
-  if (!(url in simpleStorage.storage.localSearchIndexes)) {
-    simpleStorage.storage.localSearchIndexes[url] =
-      simpleStorage.storage.localSearchcounter;
-    simpleStorage.storage.localSearchIndexes[
-      simpleStorage.storage.localSearchcounter] = url;
-    index = simpleStorage.storage.localSearchcounter;
-    simpleStorage.storage.localSearchcounter++;
-  } else {
-    index = simpleStorage.storage.localSearchIndexes[url];
-  }
-  pageWords.map(addWord);
+  pageWords.map(function(str){return str.toLowerCase();}).map(addWord);
+  var storedMap = simpleStorage.storage.localSearch;
   for (var word in map){
-    if(!storedMap[word]){
-      storedMap[word] = {};
-    }
-    storedMap[word][index] = map[word][url];
+      if(!storedMap[word]){
+        storedMap[word] = {};
+      }
+      storedMap[word][index] = map[word][url];
   }
 }
 

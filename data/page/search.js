@@ -1,7 +1,8 @@
 var box = document.getElementById('box');
 
 var search = function(event){
-    self.port.emit('search', box.value);
+  console.log('search');
+  self.port.emit('search', box.value);
 };
 
 $('#erase').bind('click', function(){
@@ -25,4 +26,11 @@ self.on('message', function(q, urls) {
     urlHtml.find('.number').text(obj.number);
     resultsHtml.append(urlHtml);
   });
+  $('a.blacklist').bind('click', blacklist);
 });
+
+var blacklist = function(event) {
+  console.log('blacklist');
+  console.log($(this).prevAll('a.url').attr('href'));
+  self.port.emit('blacklist', $(this).prevAll('a.url').attr('href'));
+};
