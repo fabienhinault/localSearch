@@ -35,7 +35,13 @@ if (!simpleStorage.storage.localSearch){
   simpleStorage.storage.localSearch = {};
 }
 if (!simpleStorage.storage.localSearchUrls){
-  simpleStorage.storage.localSearchUrls = [];
+  simpleStorage.storage.localSearchUrls = {};
+}
+if (!simpleStorage.storage.localSearchCounter){
+  simpleStorage.storage.localSearchCounter = 0;
+}
+if (!simpleStorage.storage.localSearchIndexes){
+  simpleStorage.storage.localSearchIndexes = {};
 }
 
 var searchIsOn = true;
@@ -85,9 +91,10 @@ function crawl(tab){
 function storeData(data){
   var content = data.content;
   var url = data.url;
-  var index = simpleStorage.storage.localSearchUrls.push(url) - 1;
+  var index = simpleStorage.storage.localSearchUrls[url];
   var pageWords = content.split(/\W+/); // / ,;\:!\?\./§%\* .../
   var map = {};
+  var storedMap = simpleStorage.storage.localSearch;
   var addWord = function(word){
     if (!map[word]){
         map[word] = {};
@@ -98,13 +105,23 @@ function storeData(data){
         map[word][url] = 1;
     }
   };
+  var index;
+  if (!(url in simpleStorage.storage.localSearchIndexes)) {
+    simpleStorage.storage.localSearchIndexes[url] =
+      simpleStorage.storage.localSearchcounter;
+    simpleStorage.storage.localSearchIndexes[
+      simpleStorage.storage.localSearchcounter] = url;
+    index = simpleStorage.storage.localSearchcounter;
+    simpleStorage.storage.localSearchcounter++;
+  } else {
+    index = simpleStorage.storage.localSearchIndexes[url];
+  }
   pageWords.map(addWord);
-  var storedMap = simpleStorage.storage.localSearch;
   for (var word in map){
-      if(!storedMap[word]){
-        storedMap[word] = {};
-      }
-      storedMap[word][index] = map[word][url];
+    if(!storedMap[word]){
+      storedMap[word] = {};
+    }
+    storedMap[word][index] = map[word][url];
   }
 }
 
