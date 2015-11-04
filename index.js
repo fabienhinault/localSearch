@@ -5,7 +5,7 @@ var simpleStorage = require('sdk/simple-storage');
 var data = require('sdk/self').data;
 var pageMod = require("sdk/page-mod");
 var buttons = require('sdk/ui/button/action');
-var reHost = /^.*\:\/\/.*\//;
+var reHost = /^.*\:\/\/[^\/]*\//;
 
 var button = buttons.ActionButton({
   id: "haystack",
@@ -22,42 +22,44 @@ function handleClick(state) {
   tabs.open(data.url('page/search.html'));
 }
 
-if (!simpleStorage.storage.localSearch){
-   simpleStorage.storage.localSearch = {};
-}
-if (!simpleStorage.storage.localSearchUrls){
-  simpleStorage.storage.localSearchUrls = {};
-}
-var index = 0;
-if (Array.isArray(simpleStorage.storage.localSearchUrls)){
-  var urlsArray = simpleStorage.storage.localSearchUrls;
-  var urls = {};
-  for(index = 0;
-      index < urlsArray.length;
-      index++){
-    var url = urlsArray[index];
-    if (undefined === simpleStorage.storage.localSearchIndexes[url]) {
+function initLocalStorage() {
+  if (!simpleStorage.storage.localSearch){
+    simpleStorage.storage.localSearch = {};
+  }
+  if (!simpleStorage.storage.localSearchUrls){
+    simpleStorage.storage.localSearchUrls = {};
+  }
+  var index = 0;
+  if (Array.isArray(simpleStorage.storage.localSearchUrls)){
+    var urlsArray = simpleStorage.storage.localSearchUrls;
+    var urls = {};
+    for(index = 0;
+        index < urlsArray.length;
+        index++){
+      var url = urlsArray[index];
       urls[index] = url;
-      simpleStorage.storage.localSearchIndexes[url] = index;
     }
+    simpleStorage.storage.localSearchUrls = urls;
     simpleStorage.storage.localSearchIndex = index;
   }
-}
-if (!simpleStorage.storage.localSearchIndexes){
-  simpleStorage.storage.localSearchIndexes = {};
-  for(index in Object.keys(simpleStorage.storage.localSearchUrls)) {
-    var url = simpleStorage.storage.localSearchUrls[index];
-    simpleStorage.storage.localSearchIndexes[url] = index;
+  if (!simpleStorage.storage.localSearchIndexes){
+    simpleStorage.storage.localSearchIndexes = {};
+    for(index in Object.keys(simpleStorage.storage.localSearchUrls)) {
+      var url = simpleStorage.storage.localSearchUrls[index];
+      simpleStorage.storage.localSearchIndexes[url] = index;
+    }
+  }
+  if (!simpleStorage.storage.localSearchIndex) {
+    simpleStorage.storage.localSearchIndex = index;
+  }
+  if (!simpleStorage.storage.localSearchBlacklist) {
+    simpleStorage.storage.localSearchBlacklist = {
+      'https://www.google.fr/' : true,
+    };
   }
 }
-if (!simpleStorage.storage.localSearchIndex) {
-  simpleStorage.storage.localSearchIndex = index;
-}
-if (!simpleStorage.storage.localSearchBlacklist) {
-  simpleStorage.storage.localSearchBlacklist = {
-    'https://www.google.fr/' : true,
-  };
-}
+
+initLocalStorage();
 
 var searchIsOn = true;
 
