@@ -2,10 +2,12 @@
 var tabs = require("sdk/tabs");
 var self = require("sdk/self");
 var simpleStorage = require('sdk/simple-storage');
+var { indexedDB } = require('sdk/indexed-db');
 var data = require('sdk/self').data;
 var pageMod = require("sdk/page-mod");
 var buttons = require('sdk/ui/button/action');
 var reHost = /^.*\:\/\/[^\/]*\//;
+var database = {};
 
 var button = buttons.ActionButton({
   id: "haystack",
@@ -17,6 +19,12 @@ var button = buttons.ActionButton({
   },
   onClick: handleClick
 });
+
+
+database.onerror = function(e) {
+  console.error(e.value)
+}
+
 
 function handleClick(state) {
   tabs.open(data.url('page/search.html'));
@@ -59,7 +67,22 @@ function initLocalStorage() {
   }
 }
 
+function initDB() {
+  var request = indexedDB.open('');
+  request.onupgradeneeded = function(event) {
+    var db = event.target.result;
+    var objectStore = db.createObjectStore('words', { keyPath: 'word' });
+  };
+
+  request.onsuccess = function(e) {
+    database.db = e.target.result;
+  };
+
+  request.onerror = database.onerror;
+}
+
 initLocalStorage();
+initDB();
 
 var searchIsOn = true;
 
@@ -132,6 +155,8 @@ function storeData(data){
   }
   var pageWords = content.split(/\W+/); // / ,;\:!\?\./§%\* .../
   var map = {};
+  
+  // TODO replace map[word][url] with map[word]
   var addWord = function(word){
     if (!map[word]){
         map[word] = {};
@@ -152,3 +177,44 @@ function storeData(data){
   }
 }
 
+function storeDataDB(data){
+  var content = data.content;
+  var url = data.url;
+  var pageWords = content.split(/\W+/);
+  var map = {};
+  var addWord = function(word){
+    if (!map[word]){
+      map[word] = 1;
+    }
+    else{
+      map[word] += 1;
+    }
+  };
+  pageWords.map(addWord);
+  
+  var onWordGetSuccess = function (get, word) {
+    // word is already in DB: just add current URL with nb of occurences
+    var wordMap = get.result;
+    wordMap.urls[url] = map[word];
+    var put = wordsObjectStore.put(wordMap);
+    put.onerror = database.onerror;
+  };
+  var onWordGetError = function (word) {
+    var data ={word: word, urls: {}};
+    data.urls[url] = map[word];
+    var put = wordsObjectStore.add(data);
+    put.onerror = database.onerror;
+  
+  
+  // Store values in the newly created objectStore.
+  var wordsObjectStore =
+    indexedDB.transaction(["words"], "readwrite").objectStore("words");
+  for (var word in map){
+    var get = wordsObjectStore.get(word)
+    get.onsuccess = function(event){
+      onWordGetSuccess(get, word);
+    }
+    get.onerror = function(event){
+      onWordGetError(word);
+    }
+  }
