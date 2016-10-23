@@ -2,7 +2,7 @@
 var tabs = require("sdk/tabs");
 var self = require("sdk/self");
 var simpleStorage = require('sdk/simple-storage');
-var { indexedDB } = require('sdk/indexed-db');
+var { indexedDB, IDBKeyRange } = require('sdk/indexed-db');
 var data = require('sdk/self').data;
 var pageMod = require("sdk/page-mod");
 var buttons = require('sdk/ui/button/action');
@@ -67,11 +67,31 @@ function initLocalStorage() {
   }
 }
 
-function initDB() {
-  var request = indexedDB.open('');
-  request.onupgradeneeded = function(event) {
-    var db = event.target.result;
-    var objectStore = db.createObjectStore('words', { keyPath: 'word' });
+
+
+
+
+
+
+var database = {};
+
+database.onerror = function(e) {
+  console.error(e.value)
+}
+
+function open(version) {
+  var request = indexedDB.open("stuff", version);
+
+  request.onupgradeneeded = function(e) {
+    var db = e.target.result;
+    e.target.transaction.onerror = database.onerror;
+
+    if(db.objectStoreNames.contains("words")) {
+      db.deleteObjectStore("words");
+    }
+
+    var store = db.createObjectStore("words",
+                                     {keyPath:'word'});
   };
 
   request.onsuccess = function(e) {
@@ -79,10 +99,44 @@ function initDB() {
   };
 
   request.onerror = database.onerror;
+};
+
+
+
+function listItems(itemList) {
+  console.log(itemList);
 }
 
+open("1");
+
+var add = require("sdk/ui/button/action").ActionButton({
+  id: "add",
+  label: "Add",
+  icon: "./add.png",
+  onClick: function() {
+    addItem(require("sdk/tabs").activeTab.title);
+  }
+});
+
+var list = require("sdk/ui/button/action").ActionButton({
+  id: "list",
+  label: "List",
+  icon: "./list.png",
+  onClick: function() {
+    getItems(listItems);
+  }
+});
+
+
+
+
+
+
+
+
+
 initLocalStorage();
-initDB();
+
 
 var searchIsOn = true;
 
@@ -97,7 +151,23 @@ var searchPageMod = pageMod.PageMod({
   contentScriptFile: [data.url('jquery-1.11.2.js'),
                       data.url('page/search.js')],
   onAttach: function(worker) {
-    worker.port.on('search', function(word) {
+    worker.port.on('search', function(word){
+      // searchInStorage(word, worker);
+      searchInDb(word, worker);
+    }); 
+    worker.port.on('erase', function() {
+      simpleStorage.storage.localSearch = {};
+      simpleStorage.storage.localSearchUrls = {};
+      simpleStorage.storage.localSearchIndexes = {};
+      simpleStorage.storage.localSearchIndex = 0;
+    });
+    worker.port.on('blacklist', function(url) {
+      simpleStorage.storage.localSearchBlacklist[url.match(reHost)] = true;
+    });
+  }
+});
+
+function searchInStorage(word, worker) {
       var storedResult = simpleStorage.storage.localSearch[word];
       var result = [];
       var index;
@@ -111,19 +181,31 @@ var searchPageMod = pageMod.PageMod({
       }
       //sort in reverse order
       result.sort(function(a, b){return b.number - a.number;});
-      worker.postMessage(simpleStorage.quotaUsage, result);
-    });
-    worker.port.on('erase', function() {
-      simpleStorage.storage.localSearch = {};
-      simpleStorage.storage.localSearchUrls = {};
-      simpleStorage.storage.localSearchIndexes = {};
-      simpleStorage.storage.localSearchIndex = 0;
-    });
-    worker.port.on('blacklist', function(url) {
-      simpleStorage.storage.localSearchBlacklist[url.match(reHost)] = true;
-    });
-  }
-});
+  worker.postMessage(simpleStorage.quotaUsage, result);
+}
+
+function searchInDb(word, worker) {
+  var db = database.db;
+  var trans = db.transaction(["words"], "readwrite");
+  var store = trans.objectStore("words");
+  var get = store.get(word);
+  var result = [];
+  get.onsuccess = function(e){
+    var data = get.result;
+    console.log("success");
+    console.log(e);
+    console.log(word);
+    console.log(data);
+    worker.postMessage(0, data['urls']);
+  };
+  get.onerror = function(e){
+    console.log("failure");
+    console.log(word);
+    worker.postMessage(0, {});
+  };
+}
+
+
 
 function blacklisted(url) {
   return  !!simpleStorage.storage.localSearchBlacklist[
@@ -133,11 +215,14 @@ function blacklisted(url) {
 tabs.on("ready", crawl);
 
 function crawl(tab){
-  if (searchIsOn && !require("sdk/private-browsing").isPrivate(tab) && !blacklisted(tab.url)){
+  if (searchIsOn &&
+    !require("sdk/private-browsing").isPrivate(tab) &&
+    !blacklisted(tab.url)){
       var worker = tab.attach({
         contentScriptFile: self.data.url("addUrl.js")
       });
       worker.port.on("innerHTML", storeData);
+      worker.port.on("innerHTML", storeDataDB);
   }
 }
 
@@ -177,46 +262,107 @@ function storeData(data){
   }
 }
 
-function storeDataDB(data){
+
+// function getItems(callback) {
+//   var cb = callback;
+//   var db = database.db;
+//   var trans = db.transaction(["items"], "readwrite");
+//   var store = trans.objectStore("items");
+//   var items = new Array();
+
+//   trans.oncomplete = function() {
+//     cb(items);
+//   }
+
+//   var keyRange = IDBKeyRange.lowerBound(0);
+//   var cursorRequest = store.openCursor(keyRange);
+
+//   cursorRequest.onsuccess = function(e) {
+//     var result = e.target.result;
+//     if(!!result == false)
+//       return;
+
+//     items.push(result.value.name);
+//     result.continue();
+//   };
+
+//   cursorRequest.onerror = database.onerror;
+// };
+
+
+// function addItem(name) {
+//   var db = database.db;
+//   var trans = db.transaction(["items"], "readwrite");
+//   var store = trans.objectStore("items");
+//   var time = new Date().getTime();
+//   var request = store.put({
+//     "name": name,
+//     "time": time
+//   });
+
+//   request.onerror = database.onerror;
+// };
+
+
+function storeDataDB(data){ 
   var content = data.content;
   var url = data.url;
   var pageWords = content.split(/\W+/);
-  var map = {};
+  var wordCounts = {};
   var addWord = function(word){
-    if (!map[word]){
-      map[word] = 1;
+    if (!wordCounts[word]){
+      wordCounts[word] = 1;
     }
     else{
-      map[word] += 1;
+      wordCounts[word] += 1;
     }
   };
   pageWords.map(addWord);
   
-  var onWordGetSuccess = function (get, word) {
-    // word is already in DB: just add current URL with nb of occurences
+  var onWordGetSuccess = function (get, word, store) {
     var wordMap = get.result;
-    wordMap.urls[url] = map[word];
-    var put = wordsObjectStore.put(wordMap);
+    
+    // word is already in DB: just add current URL with nb of occurences
+    console.log(word + " found");
+    console.log(worldMap);
+    wordMap.urls[url] = wordCounts[word];
+    var put = store.put(wordMap);
     put.onerror = database.onerror;
+    console.log(word + " found");
   };
   var onWordGetError = function (word) {
-    var data ={word: word, urls: {}};
+    //console.log(word + " not found");
+    var data = {'word': word, 'urls': {}};
     data.urls[url] = map[word];
-    var put = wordsObjectStore.add(data);
+    var put = store.add(data);
     put.onerror = database.onerror;
+    put.onsuccess = function(e){
+      console.log("add success");
+      console.log(e);
+      var get = store.get(word);
+      get.onerror = database.onerror;
+      get.onsuccess = function (e) {console.log(get.result);};
+    };
+  };
+  var addWord = function(word) {
+    console.log(word);
+    var get = store.get(word);
+    get.onsuccess = function(event){
+      console.log(event);
+      onWordGetSuccess(get, word, store);
+    }
+    // get.onerror = function(event){
+    //   //console.log(event);
+    //   onWordGetError(word, store);
+    // }
+    get.onerror = database.onerror;
   };
   
-  
+  var db = database.db;
+  var trans = db.transaction(["words"], "readwrite");
+  var store = trans.objectStore("words");
   // Store values in the newly created objectStore.
-  var wordsObjectStore =
-    indexedDB.transaction(["words"], "readwrite").objectStore("words");
-  for (var word in map){
-    var get = wordsObjectStore.get(word)
-    get.onsuccess = function(event){
-      onWordGetSuccess(get, word);
-    }
-    get.onerror = function(event){
-      onWordGetError(word);
-    }
+  for (var word in wordCounts){
+    addWord(word);
   }
 }
