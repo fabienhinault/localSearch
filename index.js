@@ -204,6 +204,7 @@ function storeDataDB(data){
     data.urls[url] = map[word];
     var put = wordsObjectStore.add(data);
     put.onerror = database.onerror;
+  };
   
   
   // Store values in the newly created objectStore.
@@ -218,3 +219,4 @@ function storeDataDB(data){
       onWordGetError(word);
     }
   }
+}
