@@ -25,10 +25,10 @@ self.on('message', function(q, urls) {
   var obj;
   for (obj in urls) {
     var urlHtml = $('#template .result-item').clone();
-    urlHtml.find('.url').text(obj.url).attr('href', obj.url);
-    urlHtml.find('.number').text(obj.number);
+    urlHtml.find('.url').text(obj).attr('href', obj);
+    urlHtml.find('.number').text(urls[obj]);
     resultsHtml.append(urlHtml);
-  });
+  }
   $('a.blacklist').bind('click', blacklist);
 });
 
