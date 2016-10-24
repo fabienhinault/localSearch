@@ -381,9 +381,12 @@ function storeDataDB(data){
   var store = trans.objectStore("words");
   // Store values in the newly created objectStore.
 
-  var key = Object.keys(wordCounts)[0];
-  addWord(key, store, wordCounts[key]);
-  // for (var word in wordCounts){
-  //   addWord(word, store);
+  var iWord;
+  // for (iWord = 0; iWord < 5; iWord++){
+    // var key = Object.keys(wordCounts)[iWord];
+    // addWord(key, store, wordCounts[key]);
   // }
+  for (var word in wordCounts){
+    addWord(word, store, wordCounts[word]);
+  }
 }
