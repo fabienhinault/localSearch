@@ -63,6 +63,7 @@ function initLocalStorage() {
   if (!simpleStorage.storage.localSearchBlacklist) {
     simpleStorage.storage.localSearchBlacklist = {
       'https://www.google.fr/' : true,
+      'resource://haystack/' : true
     };
   }
 }
@@ -190,21 +191,23 @@ function searchInDb(word, worker) {
   var store = trans.objectStore("words");
   var get = store.get(word);
   var result = [];
+  
   get.onsuccess = function(e){
-    var data = get.result;
-    console.log("success");
-    console.log(e);
-    console.log(word);
-    console.log(data);
-    var urlCounts = data['urls'];
-    var url;
-    for (url in urlCounts) {
-      result.push({url: url, number: urlCounts[url]});
+    try {
+      var data = get.result;
+      var urlCounts = data['urls'];
+      var url;
+      for (url in urlCounts) {
+        result.push({url: url, number: urlCounts[url]});
+      }
+      //sort in reverse order
+      result.sort(function(a, b){return b.number - a.number;});
+      worker.postMessage(0, result);
+    } catch (exception) {
+      console.error("caught: " + exception);
     }
-    //sort in reverse order
-    result.sort(function(a, b){return b.number - a.number;});
-    worker.postMessage(0, result);
   };
+  
   get.onerror = function(e){
     console.log("failure");
     console.log(word);
