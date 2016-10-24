@@ -19,7 +19,6 @@ $('#box').keypress(function( event ) {
 self.on('message', function(q, urls) {
   console.log('message');
   console.log(urls);
-  $('#quota').text(q);
   var resultsHtml = $('#results');
   resultsHtml.empty();
   var obj;
