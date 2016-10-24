@@ -196,7 +196,14 @@ function searchInDb(word, worker) {
     console.log(e);
     console.log(word);
     console.log(data);
-    worker.postMessage(0, data['urls']);
+    var urlCounts = data['urls'];
+    var url;
+    for (url in urlCounts) {
+      result.push({url: url, number: urlCounts[url]});
+    }
+    //sort in reverse order
+    result.sort(function(a, b){return b.number - a.number;});
+    worker.postMessage(0, result);
   };
   get.onerror = function(e){
     console.log("failure");
@@ -262,48 +269,6 @@ function storeData(data){
   }
 }
 
-
-// function getItems(callback) {
-//   var cb = callback;
-//   var db = database.db;
-//   var trans = db.transaction(["items"], "readwrite");
-//   var store = trans.objectStore("items");
-//   var items = new Array();
-
-//   trans.oncomplete = function() {
-//     cb(items);
-//   }
-
-//   var keyRange = IDBKeyRange.lowerBound(0);
-//   var cursorRequest = store.openCursor(keyRange);
-
-//   cursorRequest.onsuccess = function(e) {
-//     var result = e.target.result;
-//     if(!!result == false)
-//       return;
-
-//     items.push(result.value.name);
-//     result.continue();
-//   };
-
-//   cursorRequest.onerror = database.onerror;
-// };
-
-
-// function addItem(name) {
-//   var db = database.db;
-//   var trans = db.transaction(["items"], "readwrite");
-//   var store = trans.objectStore("items");
-//   var time = new Date().getTime();
-//   var request = store.put({
-//     "name": name,
-//     "time": time
-//   });
-
-//   request.onerror = database.onerror;
-// };
-
-
 function storeDataDB(data){ 
   var content = data.content;
   var url = data.url;
@@ -330,16 +295,13 @@ function storeDataDB(data){
         wordMap.urls[url] = wordCounts[word];
         var put = store.put(wordMap);
         put.onerror = database.onerror;
-        console.log(word + " found");
       } else {
         console.log(word + " not found");
         var data = {'word': word, 'urls': {}};
         data.urls[url] = count;
-        var put = store.add(data);
-        put.onerror = database.onerror;
-        put.onsuccess = function(e){
-          console.log("add success");
-          console.log(e);
+        var add = store.add(data);
+        add.onerror = database.onerror;
+        add.onsuccess = function (e) {
           var get = store.get(word);
           get.onerror = database.onerror;
           get.onsuccess = function (e) {console.log(get.result);};

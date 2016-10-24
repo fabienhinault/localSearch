@@ -23,12 +23,12 @@ self.on('message', function(q, urls) {
   var resultsHtml = $('#results');
   resultsHtml.empty();
   var obj;
-  for (obj in urls) {
+  urls.forEach(function (obj) {
     var urlHtml = $('#template .result-item').clone();
-    urlHtml.find('.url').text(obj).attr('href', obj);
-    urlHtml.find('.number').text(urls[obj]);
+    urlHtml.find('.url').text(obj.url).attr('href', obj.url);
+    urlHtml.find('.number').text(obj.number);
     resultsHtml.append(urlHtml);
-  }
+  });
   $('a.blacklist').bind('click', blacklist);
 });
 
