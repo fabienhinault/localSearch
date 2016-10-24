@@ -319,37 +319,55 @@ function storeDataDB(data){
   };
   pageWords.map(addWord);
   
-  var onWordGetSuccess = function (get, word, store) {
-    var wordMap = get.result;
-    
-    // word is already in DB: just add current URL with nb of occurences
-    console.log(word + " found");
-    console.log(worldMap);
-    wordMap.urls[url] = wordCounts[word];
-    var put = store.put(wordMap);
-    put.onerror = database.onerror;
-    console.log(word + " found");
+  var onWordGetSuccess = function (get, word, store, count) {
+    try{
+      console.log(word + " success");
+      var wordMap = get.result;
+      console.log(wordMap);
+      if (undefined !== wordMap){
+        // word is already in DB: just add current URL with nb of occurences
+        console.log(word + " found");
+        wordMap.urls[url] = wordCounts[word];
+        var put = store.put(wordMap);
+        put.onerror = database.onerror;
+        console.log(word + " found");
+      } else {
+        console.log(word + " not found");
+        var data = {'word': word, 'urls': {}};
+        data.urls[url] = count;
+        var put = store.add(data);
+        put.onerror = database.onerror;
+        put.onsuccess = function(e){
+          console.log("add success");
+          console.log(e);
+          var get = store.get(word);
+          get.onerror = database.onerror;
+          get.onsuccess = function (e) {console.log(get.result);};
+        };
+      }
+    } catch(exception) {
+      console.log('caught: ' + exception);
+    }
   };
+  
   var onWordGetError = function (word) {
     //console.log(word + " not found");
-    var data = {'word': word, 'urls': {}};
-    data.urls[url] = map[word];
-    var put = store.add(data);
-    put.onerror = database.onerror;
-    put.onsuccess = function(e){
-      console.log("add success");
-      console.log(e);
-      var get = store.get(word);
-      get.onerror = database.onerror;
-      get.onsuccess = function (e) {console.log(get.result);};
-    };
+
   };
-  var addWord = function(word) {
+  var addWord = function(word, store, count) {
     console.log(word);
     var get = store.get(word);
     get.onsuccess = function(event){
       console.log(event);
-      onWordGetSuccess(get, word, store);
+      console.log(word + " onsuccess");
+      onWordGetSuccess(get, word, store, count);
+      // try{
+      //   var wordMap = get.result;
+      //   console.log(wordMap);
+      // } catch(exception) {
+      //   console.log("catched " + exception);
+      // }
+
     }
     // get.onerror = function(event){
     //   //console.log(event);
@@ -362,7 +380,10 @@ function storeDataDB(data){
   var trans = db.transaction(["words"], "readwrite");
   var store = trans.objectStore("words");
   // Store values in the newly created objectStore.
-  for (var word in wordCounts){
-    addWord(word);
-  }
+
+  var key = Object.keys(wordCounts)[0];
+  addWord(key, store, wordCounts[key]);
+  // for (var word in wordCounts){
+  //   addWord(word, store);
+  // }
 }

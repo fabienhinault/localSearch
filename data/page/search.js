@@ -17,10 +17,13 @@ $('#box').keypress(function( event ) {
 });
 
 self.on('message', function(q, urls) {
+  console.log('message');
+  console.log(urls);
   $('#quota').text(q);
   var resultsHtml = $('#results');
   resultsHtml.empty();
-  urls.forEach(function(obj){
+  var obj;
+  for (obj in urls) {
     var urlHtml = $('#template .result-item').clone();
     urlHtml.find('.url').text(obj.url).attr('href', obj.url);
     urlHtml.find('.number').text(obj.number);
