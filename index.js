@@ -164,30 +164,21 @@ function storeDataDB(data){
     }
   };
   pageWords.map(addWord);
-  console.log('wordCounts:' + wordCounts);
 
   var onWordGetSuccess = function (get, word, store, count) {
     try{
-      console.log(word + " success");
       var wordMap = get.result;
       console.log(wordMap);
       if (undefined !== wordMap){
         // word is already in DB: just add current URL with nb of occurences
-        console.log(word + " found");
         wordMap.urls[url] = wordCounts[word];
         var put = store.put(wordMap);
         put.onerror = database.onerror;
       } else {
-        console.log(word + " not found");
         var data = {'word': word, 'urls': {}};
         data.urls[url] = count;
         var add = store.add(data);
         add.onerror = database.onerror;
-        add.onsuccess = function (e) {
-          var get = store.get(word);
-          get.onerror = database.onerror;
-          get.onsuccess = function (e) {console.log(get.result);};
-        };
       }
     } catch(exception) {
       console.log('caught: ' + exception);
@@ -195,11 +186,8 @@ function storeDataDB(data){
   };
 
   var addWord = function(word, store, count) {
-    console.log(word);
     var get = store.get(word);
     get.onsuccess = function(event){
-      console.log(event);
-      console.log(word + " onsuccess");
       onWordGetSuccess(get, word, store, count);
     }
     get.onerror = database.onerror;
