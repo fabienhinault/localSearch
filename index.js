@@ -84,20 +84,14 @@ var searchPageMod = pageMod.PageMod({
                       data.url('page/search.js')],
   onAttach: function(worker) {
     worker.port.on('search', function(word){
-      // searchInStorage(word, worker);
       searchInDb(word, worker);
     }); 
-    worker.port.on('erase', function() {
-      simpleStorage.storage.localSearch = {};
-      simpleStorage.storage.localSearchUrls = {};
-      simpleStorage.storage.localSearchIndexes = {};
-      simpleStorage.storage.localSearchIndex = 0;
-    });
     worker.port.on('blacklist', function(url) {
-      simpleStorage.storage.localSearchBlacklist[url.match(reHost)] = true;
+      simpleStorage.storage.localSearchBlacklist[url.match(reHost)[0]] = true;
     });
   }
 });
+
 
 function searchInDb(word, worker) {
   var db = database.db;
@@ -111,12 +105,21 @@ function searchInDb(word, worker) {
       var data = get.result;
       var urlCounts = data['urls'];
       var url;
+      var blackListFlag = false;
       for (url in urlCounts) {
-        result.push({url: url, number: urlCounts[url]});
+        if (blacklisted(url)) {
+          delete urlCounts[url];
+          blackListFlag = true;
+        } else {
+          result.push({url: url, number: urlCounts[url]});
+        }
       }
       //sort in reverse order
       result.sort(function(a, b){return b.number - a.number;});
       worker.postMessage(0, result);
+      if (blackListFlag) {
+        put = store.put(data);
+      }
     } catch (exception) {
       console.error("caught: " + exception);
     }
